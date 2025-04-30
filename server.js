@@ -1,78 +1,80 @@
 const express = require('express')
-const ytdl = require('ytdl-core')
 const cors = require('cors')
-const path = require('path')
-require('dotenv').config()
+const dotenv = require('dotenv')
+const ytdl = require('ytdl-core')
+const ytSearch = require('yt-search')
+
+dotenv.config()
 
 const app = express()
-const PORT = process.env.PORT || 5000
+const PORT = process.env.PORT || 3000
 
 app.use(cors())
-app.use(express.static(path.join(__dirname, 'public')))
 
-// Home route (static HTML page)
+// Root route
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'))
+  res.send('YouTube Search & Downloader API is up and running!')
 })
 
-// Video info endpoint
-app.get('/info', async (req, res) => {
-    const videoURL = req.query.url
-    if (!videoURL) return res.status(400).json({ error: 'Video URL is required' })
+// Search YouTube
+app.get('/search', async (req, res) => {
+  const query = req.query.q
+  if (!query) return res.status(400).json({ status: false, message: 'Missing search query' })
 
-    try {
-        const info = await ytdl.getInfo(videoURL)
-        res.json({
-            title: info.videoDetails.title,
-            description: info.videoDetails.description,
-            lengthSeconds: info.videoDetails.lengthSeconds,
-            author: info.videoDetails.author.name,
-            thumbnails: info.videoDetails.thumbnails,
-            views: info.videoDetails.viewCount,
-        })
-    } catch (err) {
-        res.status(500).json({ error: 'Failed to fetch video info' })
-    }
+  try {
+    const result = await ytSearch(query)
+    if (!result.videos.length) return res.status(404).json({ status: false, message: 'No results found' })
+
+    const video = result.videos[0]
+    res.json({
+      status: true,
+      title: video.title,
+      url: video.url,
+      thumbnail: video.thumbnail,
+      duration: video.timestamp,
+      views: video.views,
+      author: video.author.name
+    })
+  } catch (error) {
+    res.status(500).json({ status: false, message: 'Search failed', error: error.message })
+  }
 })
 
-// Download video
+// Download video by search
 app.get('/download/video', async (req, res) => {
-    const videoURL = req.query.url
-    if (!videoURL) return res.status(400).json({ error: 'Video URL is required' })
+  const query = req.query.q
+  if (!query) return res.status(400).json({ status: false, message: 'Missing search query' })
 
-    try {
-        const info = await ytdl.getInfo(videoURL)
-        const title = info.videoDetails.title.replace(/[^\w\s]/gi, '')
+  try {
+    const result = await ytSearch(query)
+    if (!result.videos.length) return res.status(404).json({ status: false, message: 'No results found' })
 
-        res.header('Content-Disposition', `attachment; filename="${title}.mp4"`)
-
-        ytdl(videoURL, { format: 'mp4' }).pipe(res)
-    } catch (err) {
-        res.status(500).json({ error: 'Failed to download video' })
-    }
+    const videoURL = result.videos[0].url
+    res.header('Content-Disposition', `attachment; filename="video.mp4"`)
+    ytdl(videoURL, { format: 'mp4' }).pipe(res)
+  } catch (error) {
+    res.status(500).json({ status: false, message: 'Video download failed', error: error.message })
+  }
 })
 
-// Download audio
+// Download audio by search
 app.get('/download/audio', async (req, res) => {
-    const videoURL = req.query.url
-    if (!videoURL) return res.status(400).json({ error: 'Video URL is required' })
+  const query = req.query.q
+  if (!query) return res.status(400).json({ status: false, message: 'Missing search query' })
 
-    try {
-        const info = await ytdl.getInfo(videoURL)
-        const title = info.videoDetails.title.replace(/[^\w\s]/gi, '')
+  try {
+    const result = await ytSearch(query)
+    if (!result.videos.length) return res.status(404).json({ status: false, message: 'No results found' })
 
-        res.header('Content-Disposition', `attachment; filename="${title}.mp3"`)
-
-        ytdl(videoURL, {
-            filter: 'audioonly',
-            quality: 'highestaudio',
-        }).pipe(res)
-    } catch (err) {
-        res.status(500).json({ error: 'Failed to download audio' })
-    }
+    const videoURL = result.videos[0].url
+    res.header('Content-Disposition', `attachment; filename="audio.mp3"`)
+    ytdl(videoURL, { filter: 'audioonly' }).pipe(res)
+  } catch (error) {
+    res.status(500).json({ status: false, message: 'Audio download failed', error: error.message })
+  }
 })
 
 // Start server
 app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`)
-}
+  console.log(`YouTube Search & Downloader API running at http://localhost:${PORT}`)
+})
