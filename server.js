@@ -41,7 +41,7 @@ app.get('/search', async (req, res) => {
   }
 });
 
-// Download video route
+// Download video route (safe)
 app.get('/download/video', async (req, res) => {
   try {
     const query = req.query.q;
@@ -51,14 +51,12 @@ app.get('/download/video', async (req, res) => {
     if (!result.videos.length) return res.status(404).json({ error: 'No videos found' });
 
     const video = result.videos[0];
-    const info = await ytdl.getInfo(video.url);
-    const title = info.videoDetails.title.replace(/[^\w\s]/gi, '');
+    const title = video.title.replace(/[^\w\s]/gi, '');
 
     res.header('Content-Disposition', `attachment; filename="${title}.mp4"`);
 
     ytdl(video.url, {
-      format: 'mp4',
-      quality: 'highest'
+      quality: '18'  // 18 is standard 360p MP4 — reliably works
     }).pipe(res);
 
   } catch (err) {
@@ -66,7 +64,7 @@ app.get('/download/video', async (req, res) => {
   }
 });
 
-// Download audio route
+// Download audio route (safe)
 app.get('/download/audio', async (req, res) => {
   try {
     const query = req.query.q;
@@ -76,8 +74,7 @@ app.get('/download/audio', async (req, res) => {
     if (!result.videos.length) return res.status(404).json({ error: 'No videos found' });
 
     const video = result.videos[0];
-    const info = await ytdl.getInfo(video.url);
-    const title = info.videoDetails.title.replace(/[^\w\s]/gi, '');
+    const title = video.title.replace(/[^\w\s]/gi, '');
 
     res.header('Content-Disposition', `attachment; filename="${title}.mp3"`);
 
